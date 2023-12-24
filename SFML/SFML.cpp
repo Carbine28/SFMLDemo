@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "imgui.h"
+#include "imgui_stdlib.h"
 #include "imgui-SFML.h"
 #include "SFML/Graphics.hpp"
 
@@ -29,6 +30,9 @@ protected:
     float B;
     float circleColor[3];
     bool shapeExists{true};
+    float scale{ 1.0f };
+    sf::Font myFont;
+    sf::Text text;
 public:
     Shape(const std::string& n, float x, float y, float sX, float sY, float r, float g, float b)
         : name{ n }, posX{ x }, posY{ y }, speedX{sX}, speedY{sY}, R{r}, G{g}, B{b} 
@@ -36,8 +40,15 @@ public:
         circleColor[0] = R / 255;
         circleColor[1] = G / 255;
         circleColor[2] = B / 255;
+        if (!myFont.loadFromFile("fonts/Roboto-Regular.ttf"))
+        {
+            std::cerr << "Could not load file";
+            exit(-1);
+        }
+        text = sf::Text(name, myFont, 16);
     }
 
+    std::string* getName() { return &name; }
     float getPosX() const { return posX; }
     float getPosY() const { return posY; }
     float getSpeedX() const { return speedX; }
@@ -45,11 +56,23 @@ public:
     float getR() const { return R; }
     float getG() const { return G; }
     float getB() const { return B; }
+
+    float* getScale() { return &scale; }
+
+    void setSpeedX(float x) { speedX = x;}
+    void setSpeedY(float y) { speedY = y; }
+
+    void show() { shapeExists = true; }
+    void hide() { shapeExists = false; }
     bool exists() const { return shapeExists; }
-    const void show() { shapeExists = true; }
-    const void hide() { shapeExists = false; }
-    virtual void draw(sf::RenderWindow& window) const = 0;
-    
+    bool* getExists() { return &shapeExists; }
+
+    float* getSpeedXRef() { return &speedX; }
+    float* getSpeedYRef() { return &speedY; }
+    float* getColor() { return circleColor; }
+    void setText(std::string newText) { text.setString(newText); }
+
+    virtual void draw(sf::RenderWindow& window) = 0;
 };
 
 class Circle : public Shape
@@ -72,19 +95,41 @@ public:
         ));
     }
     const float getRadius() const { return circleRadius; }
-    const int getSegments() const { return circleSegments; }
+    const size_t getSegments() const { return circleSegments; }
     const sf::CircleShape getShape() const { return *shape; }
-    void draw(sf::RenderWindow& window) const override
+
+    void move()
     {
+        if (getPosX() + getSpeedX() + (circleRadius * shape->getScale().x) > 1280 || getPosX() + getSpeedX() - (circleRadius * shape->getScale().x) < 0)     // Ball hit right wall
+        {
+            setSpeedX(getSpeedX() * (-1.0f));
+        }
+
+        if (getPosY() + getSpeedY() + (circleRadius * shape->getScale().x) > 720 || getPosY() + getSpeedY() - (circleRadius * shape->getScale().x) < 0)     // Ball hit right wall
+        {
+            setSpeedY(getSpeedY() * (-1.0f));
+        }
+        posX += getSpeedX();
+        posY += getSpeedY();
+    }
+
+    void draw(sf::RenderWindow& window) override
+    {
+        move();
+        shape->setScale(*(getScale()), *(getScale()));
         shape->setOrigin(circleRadius, circleRadius);
         shape->setPosition(getPosX(), getPosY());
         shape->setPointCount(circleSegments);
         shape->setFillColor(sf::Color(
-            (int)circleColor[0] * 255,
-            (int)circleColor[1] * 255,
-            (int)circleColor[2] * 255
+            static_cast<sf::Uint8>(circleColor[0] * 255),
+            static_cast<sf::Uint8>(circleColor[1] * 255),
+            static_cast<sf::Uint8>(circleColor[2] * 255)
         ));
         window.draw(getShape());
+        text = sf::Text(name, myFont, 20);
+        text.setOrigin(circleRadius/1.8f, circleRadius/1.8f);
+        text.setPosition(getPosX(), getPosY());
+        window.draw(text);
     }
 };
 
@@ -107,20 +152,42 @@ public:
         shape->setPosition(x, y);
     }
 
-    float getWidth() const { return width; }
-    float getHeight() const { return height; }
+    float getWidth() { return width; }
+    float getHeight() { return height; }
     const sf::RectangleShape getShape() const { return *shape; }
 
-    void draw(sf::RenderWindow& window) const override
+    void move()
     {
+        if (getPosX() + getSpeedX() + ((getWidth() * shape->getScale().x)/2.0f) > 1280 || getPosX() + getSpeedX() - ((getWidth() * shape->getScale().x) / 2.0f) < 0)     // Ball hit right wall
+        {
+            setSpeedX(getSpeedX() * (-1.0f));
+        }
+
+        if (getPosY() + getSpeedY() + ((getHeight() * shape->getScale().y)/2.0f)  > 720 || getPosY() + getSpeedY() - ((getHeight() * shape->getScale().y) / 2.0f) < 0)     // Ball hit right wall
+        {
+            setSpeedY(getSpeedY() * (-1.0f));
+        }
+        posX += getSpeedX();
+        posY += getSpeedY();
+    }
+
+    void draw(sf::RenderWindow& window) override
+    {
+        move();
+
         shape->setFillColor(sf::Color(
-            (int)circleColor[0] * 255,
-            (int)circleColor[1] * 255,
-            (int)circleColor[2] * 255
+            static_cast<sf::Uint8>(circleColor[0] * 255),
+            static_cast<sf::Uint8>(circleColor[1] * 255),
+            static_cast<sf::Uint8>(circleColor[2] * 255)
         ));
-        shape->setOrigin(width / 2, height / 2);
+        shape->setScale(*getScale(), *getScale());
+        shape->setOrigin(getWidth() / 2.0f, getHeight() / 2.0f);
         shape->setPosition(getPosX(), getPosY());
         window.draw(getShape());
+        text = sf::Text(name, myFont, 18);
+        text.setOrigin(getWidth() / 2.0f, getHeight() / 2.0f);
+        text.setPosition(getPosX(), getPosY());
+        window.draw(text);
     }
 };
 
@@ -172,6 +239,13 @@ int main()
     //text.setPosition(0, SCREEN_HEIGHT - (float)text.getCharacterSize());
     //char displayText[255] = "Sample text";
 
+    std::vector<std::string> items;
+    for (const auto& s : myShapes)
+    {
+        items.push_back(*(s->getName()));
+    }
+    size_t current_item_index{};
+    static const char* current_item = items[0].c_str();
     while (window.isOpen())
     {
         sf::Event event;
@@ -183,20 +257,43 @@ int main()
         }
         ImGui::SFML::Update(window, deltaClock.restart());
 
-        //ImGui::Begin("Window Title");
-        //ImGui::Text("Hey this is the text!");
-        //ImGui::Checkbox("Draw Circle", &circleExists);
-        //ImGui::SliderFloat("Radius", &circleRadius, 100.0f, 300.0f);
-        //ImGui::SliderInt("Segments", &circleSegments, 3, 150);
-        //ImGui::ColorEdit3("Color Circle", circleColor);
-        //ImGui::InputText("Text", displayText, 255);
-        //if (ImGui::Button("Set Text"))
-        //{
-        //    text.setString(displayText);
-        //}
-        //ImGui::End();
-        //text.setPosition(0, SCREEN_HEIGHT - (float)text.getCharacterSize());
+        ImGui::Begin("Shape Properties");
+        if (ImGui::BeginCombo("Selected Shape", current_item))
+        {
+            for (size_t n = 0; n < items.size(); ++n)
+            {
+                const bool is_selected = (current_item == items[n]);
+                if (ImGui::Selectable(items[n].c_str(), is_selected))
+                {
+                    current_item = items[n].c_str();
+                    current_item_index = n;
+                }
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();               
+            }
+            ImGui::EndCombo();
 
+        }
+
+        ImGui::PushItemWidth(100);
+        ImGui::Checkbox("Draw Circle", myShapes[current_item_index]->getExists());
+        ImGui::SliderFloat("Scale", myShapes[current_item_index]->getScale(), 0.0f, 3.0f);
+        //ImGui::SliderFloat("Radius", &circleRadius, 100.0f, 300.0f);
+        ImGui::PushItemWidth(ImGui::GetWindowWidth() * .33f);
+        ImGui::SliderFloat("##x", myShapes[current_item_index]->getSpeedXRef(), -6.0f, 6.0f);
+        ImGui::SameLine();
+        ImGui::SliderFloat("Velocity", myShapes[current_item_index]->getSpeedYRef(), -6.0f, 6.0f);
+        //ImGui::SliderInt("Segments", &circleSegments, 3, 150);
+        ImGui::PushItemWidth(ImGui::GetWindowWidth() * .68f);
+        ImGui::ColorEdit3("Color Circle", myShapes[current_item_index]->getColor());
+        ImGui::InputText("Name", myShapes[current_item_index]->getName());
+        if (ImGui::Button("Set Text"))
+        {
+            myShapes[current_item_index]->setText(*(myShapes[current_item_index]->getName()));
+            items[current_item_index] = *(myShapes[current_item_index]->getName());
+        }
+        ImGui::End();
+        //text.setPosition(0, SCREEN_HEIGHT - (float)text.getCharacterSize());
         // ---------------- Rendering ---------------------------- //
         window.clear(sf::Color(18, 33, 43)); // Color background
 
