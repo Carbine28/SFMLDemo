@@ -1,6 +1,6 @@
 # SFML
 
-A program craeted to demostrate the basics of SFML and Dear ImGui.
+A program created to demostrate the basics of SFML and Dear ImGui.
 
 ![](https://github.com/Carbine28/SFMLDemo/blob/master/demo/demo.gif)
 
